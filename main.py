@@ -1,0 +1,105 @@
+import cv2
+import glob
+import os
+from gradevision_core.scanner import image_loader, preprocessing, document, perspective
+from gradevision_core.detection import bubbles, grid
+from gradevision_core.grading import scoring, answer_key, grader
+from gradevision_core.export import csv_exporter
+
+
+def procesar_examen(ruta_imagen, clave):
+    imagen = image_loader.cargar_imagen(ruta_imagen)
+    if imagen is None:
+        raise ValueError("No se pudo abrir la imagen (¿archivo dañado o formato no soportado?).")
+
+    imagen_gris = preprocessing.convertir_a_grises(imagen)
+    imagen_suave = preprocessing.suavizar(imagen_gris)
+    bordes = preprocessing.detectar_bordes(imagen_suave)
+
+    contorno_hoja = document.encontrar_contorno_hoja(bordes)
+    puntos = document.obtener_cuatro_esquinas(contorno_hoja)
+
+    if puntos is None:
+        raise ValueError("No se pudo detectar un contorno de 4 esquinas para la hoja.")
+
+    esquinas = document.ordenar_esquinas(puntos)
+    hoja_enderezada = perspective.enderezar_hoja(imagen, esquinas)
+
+    hoja_gris = preprocessing.convertir_a_grises(hoja_enderezada)
+    hoja_binaria = bubbles.binarizar(hoja_gris)
+    hoja_cerrada = bubbles.cerrar_bordes(hoja_binaria)
+    burbujas_encontradas = bubbles.detectar_burbujas(hoja_cerrada)
+
+    if len(burbujas_encontradas) != 120:
+        raise ValueError(f"Se esperaban 120 burbujas, se detectaron {len(burbujas_encontradas)}.")
+
+    preguntas = grid.organizar_en_grilla(burbujas_encontradas)
+
+    letras = ["A", "B", "C", "D"]
+    respuestas_detectadas = {}
+
+    for num_pregunta, opciones in enumerate(preguntas, start=1):
+        resultado, _ = scoring.detectar_respuesta(opciones, hoja_gris)
+        if resultado is None:
+            respuestas_detectadas[num_pregunta] = None
+        elif resultado == "multiple":
+            respuestas_detectadas[num_pregunta] = "multiple"
+        else:
+            respuestas_detectadas[num_pregunta] = letras[resultado]
+
+    resultados, correctas, total, nota = grader.calificar(respuestas_detectadas, clave)
+
+    return {
+        "resultados": resultados,
+        "correctas": correctas,
+        "total": total,
+        "nota": nota
+    }
+
+
+def main():
+    clave = answer_key.cargar_clave("assets/answer_keys/clave_biologia.json")
+
+    rutas_imagenes = (
+        glob.glob("sample_data/exams/*.jpg")
+        + glob.glob("sample_data/exams/*.jpeg")
+        + glob.glob("sample_data/exams/*.png")
+    )
+    print(f"Se encontraron {len(rutas_imagenes)} fotos para procesar.\n")
+
+    examenes_procesados = []
+    exitosos = 0
+    fallidos = 0
+
+    for ruta in rutas_imagenes:
+        nombre_archivo = os.path.basename(ruta)
+        print(f"--- Procesando: {nombre_archivo} ---")
+
+        try:
+            datos = procesar_examen(ruta, clave)
+            print(f"Correctas: {datos['correctas']}/{datos['total']}  |  Nota: {datos['nota']}/10")
+
+            examenes_procesados.append({
+                "alumno": nombre_archivo,
+                "resultados": datos["resultados"],
+                "correctas": datos["correctas"],
+                "total": datos["total"],
+                "nota": datos["nota"]
+            })
+            exitosos += 1
+
+        except ValueError as error:
+            print(f"FALLÓ: {error}")
+            fallidos += 1
+
+        print()
+
+    if examenes_procesados:
+        ruta_csv = csv_exporter.exportar_resultados_consolidado(examenes_procesados)
+        print(f"Archivo consolidado generado en: {ruta_csv}")
+
+    print(f"\n--- Resumen final: {exitosos} procesados con éxito, {fallidos} fallidos ---")
+
+
+if __name__ == "__main__":
+    main()
