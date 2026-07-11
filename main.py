@@ -1,13 +1,15 @@
 import cv2
 import glob
 import os
+import string
 from gradevision_core.scanner import image_loader, preprocessing, document, perspective
 from gradevision_core.detection import bubbles, grid
 from gradevision_core.grading import scoring, answer_key, grader
 from gradevision_core.export import csv_exporter
+from gradevision_core.templates import template_loader
 
 
-def procesar_examen(ruta_imagen, clave):
+def procesar_examen(ruta_imagen, clave, template):
     imagen = image_loader.cargar_imagen(ruta_imagen)
     if imagen is None:
         raise ValueError("No se pudo abrir la imagen (¿archivo dañado o formato no soportado?).")
@@ -30,12 +32,15 @@ def procesar_examen(ruta_imagen, clave):
     hoja_cerrada = bubbles.cerrar_bordes(hoja_binaria)
     burbujas_encontradas = bubbles.detectar_burbujas(hoja_cerrada)
 
-    if len(burbujas_encontradas) != 120:
-        raise ValueError(f"Se esperaban 120 burbujas, se detectaron {len(burbujas_encontradas)}.")
+    total_esperado = template["total_preguntas"] * template["opciones_por_pregunta"]
+    if len(burbujas_encontradas) != total_esperado:
+        raise ValueError(
+            f"Se esperaban {total_esperado} burbujas, se detectaron {len(burbujas_encontradas)}."
+        )
 
-    preguntas = grid.organizar_en_grilla(burbujas_encontradas)
+    preguntas = grid.organizar_en_grilla(burbujas_encontradas, template)
 
-    letras = ["A", "B", "C", "D"]
+    letras = list(string.ascii_uppercase[:template["opciones_por_pregunta"]])
     respuestas_detectadas = {}
 
     for num_pregunta, opciones in enumerate(preguntas, start=1):
@@ -58,7 +63,11 @@ def procesar_examen(ruta_imagen, clave):
 
 
 def main():
+    template = template_loader.cargar_template("assets/templates/template_biologia.json")
     clave = answer_key.cargar_clave("assets/answer_keys/clave_biologia.json")
+
+    print(f"Usando template: {template['nombre']}")
+    print(f"({template['total_preguntas']} preguntas, {template['opciones_por_pregunta']} opciones, {template['bloques']} bloques)\n")
 
     rutas_imagenes = (
         glob.glob("sample_data/exams/*.jpg")
@@ -76,7 +85,7 @@ def main():
         print(f"--- Procesando: {nombre_archivo} ---")
 
         try:
-            datos = procesar_examen(ruta, clave)
+            datos = procesar_examen(ruta, clave, template)
             print(f"Correctas: {datos['correctas']}/{datos['total']}  |  Nota: {datos['nota']}/10")
 
             examenes_procesados.append({
