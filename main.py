@@ -2,7 +2,7 @@ import cv2
 import glob
 import os
 import string
-from gradevision_core.scanner import image_loader, preprocessing, document, perspective
+from gradevision_core.scanner import image_loader, preprocessing, document, perspective, validation
 from gradevision_core.detection import bubbles, grid
 from gradevision_core.grading import scoring, answer_key, grader
 from gradevision_core.export import csv_exporter
@@ -15,6 +15,22 @@ def procesar_examen(ruta_imagen, clave, template):
         raise ValueError("No se pudo abrir la imagen (¿archivo dañado o formato no soportado?).")
 
     imagen_gris = preprocessing.convertir_a_grises(imagen)
+
+    # --- Validaciones tempranas de calidad de la foto ---
+    nitida, valor_nitidez = validation.verificar_nitidez(imagen_gris)
+    if not nitida:
+        raise ValueError(
+            f"La foto parece estar borrosa (nitidez medida: {valor_nitidez:.1f}, "
+            f"mínimo esperado: 80). Sacá la foto de nuevo con la cámara estable y bien enfocada."
+        )
+
+    iluminacion_ok, valor_brillo = validation.verificar_iluminacion(imagen_gris)
+    if not iluminacion_ok:
+        raise ValueError(
+            f"La iluminación de la foto no es adecuada (brillo medido: {valor_brillo:.1f}). "
+            f"Sacá la foto de nuevo con mejor luz, evitando sombras fuertes o luz directa excesiva."
+        )
+
     imagen_suave = preprocessing.suavizar(imagen_gris)
     bordes = preprocessing.detectar_bordes(imagen_suave)
 
@@ -22,7 +38,15 @@ def procesar_examen(ruta_imagen, clave, template):
     puntos = document.obtener_cuatro_esquinas(contorno_hoja)
 
     if puntos is None:
-        raise ValueError("No se pudo detectar un contorno de 4 esquinas para la hoja.")
+        # Diagnóstico inteligente: para esto necesitamos los puntos "crudos"
+        # (sin simplificar a 4), así que los recalculamos acá para el mensaje.
+        perimetro = cv2.arcLength(contorno_hoja, True)
+        aproximacion = cv2.approxPolyDP(contorno_hoja, 0.02 * perimetro, True)
+        puntos_crudos = aproximacion.reshape(-1, 2)
+
+        alto_imagen, ancho_imagen = imagen.shape[:2]
+        mensaje = validation.diagnosticar_falla_esquinas(puntos_crudos, ancho_imagen, alto_imagen)
+        raise ValueError(mensaje)
 
     esquinas = document.ordenar_esquinas(puntos)
     hoja_enderezada = perspective.enderezar_hoja(imagen, esquinas)
@@ -35,7 +59,8 @@ def procesar_examen(ruta_imagen, clave, template):
     total_esperado = template["total_preguntas"] * template["opciones_por_pregunta"]
     if len(burbujas_encontradas) != total_esperado:
         raise ValueError(
-            f"Se esperaban {total_esperado} burbujas, se detectaron {len(burbujas_encontradas)}."
+            f"Se esperaban {total_esperado} burbujas, se detectaron {len(burbujas_encontradas)}. "
+            f"Revisá que no haya marcas ajenas a las respuestas (tildes, cruces, manchas) cerca de las burbujas."
         )
 
     preguntas = grid.organizar_en_grilla(burbujas_encontradas, template)
