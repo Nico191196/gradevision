@@ -95,3 +95,100 @@ def guardar_clave(clave, nombre_examen, carpeta_salida="assets/answer_keys"):
         json.dump(clave, archivo, ensure_ascii=False, indent=2)
 
     return ruta
+
+def cargar_json(ruta):
+    with open(ruta, "r", encoding="utf-8") as archivo:
+        return json.load(archivo)
+
+
+def guardar_json(datos, ruta):
+    with open(ruta, "w", encoding="utf-8") as archivo:
+        json.dump(datos, archivo, ensure_ascii=False, indent=2)
+
+
+def pedir_entero_opcional(mensaje, valor_actual, minimo=1):
+    """
+    Igual que pedir_entero, pero si el profesor no escribe nada y
+    aprieta Enter, se mantiene el valor actual.
+    """
+    while True:
+        entrada = input(f"{mensaje} (actual: {valor_actual}, Enter para no cambiar): ").strip()
+        if entrada == "":
+            return valor_actual
+        if entrada.isdigit() and int(entrada) >= minimo:
+            return int(entrada)
+        print(f"  Por favor ingresá un número entero de {minimo} o más, o dejalo vacío.")
+
+
+def mostrar_detalle_examen(examen):
+    template = cargar_json(examen["ruta_template"])
+    clave = cargar_json(examen["ruta_clave"])
+
+    print(f"\nNombre: {template['nombre']}")
+    print(f"Total de preguntas: {template['total_preguntas']}")
+    print(f"Opciones por pregunta: {template['opciones_por_pregunta']}")
+    print(f"Bloques: {template['bloques']}")
+    print("Clave de respuestas:")
+    for pregunta, letra in clave.items():
+        print(f"  Pregunta {pregunta}: {letra}")
+
+
+def editar_examen_interactivo(examen):
+    template = cargar_json(examen["ruta_template"])
+
+    print(f"\nEditando: {template['nombre']}")
+    print("Dejá vacío (Enter) cualquier campo que no quieras cambiar.\n")
+
+    nuevo_nombre = input(f"Nombre (actual: {template['nombre']}): ").strip()
+    if nuevo_nombre != "":
+        template["nombre"] = nuevo_nombre
+
+    nuevo_total = pedir_entero_opcional("Total de preguntas", template["total_preguntas"])
+    nuevas_opciones = pedir_entero_opcional("Opciones por pregunta", template["opciones_por_pregunta"], minimo=2)
+
+    while True:
+        nuevos_bloques = pedir_entero_opcional("Bloques/columnas", template["bloques"])
+        if nuevo_total % nuevos_bloques == 0:
+            break
+        print(f"  {nuevo_total} preguntas no se puede dividir en partes iguales entre {nuevos_bloques} bloques.")
+
+    estructura_cambio = (
+        nuevo_total != template["total_preguntas"]
+        or nuevas_opciones != template["opciones_por_pregunta"]
+    )
+
+    template["total_preguntas"] = nuevo_total
+    template["opciones_por_pregunta"] = nuevas_opciones
+    template["bloques"] = nuevos_bloques
+
+    guardar_json(template, examen["ruta_template"])
+    print(f"\nConfiguración actualizada en: {examen['ruta_template']}")
+
+    if estructura_cambio:
+        print("\nComo cambió la cantidad de preguntas o de opciones, hay que volver a cargar la clave de respuestas.")
+        clave = pedir_clave_respuestas(template)
+        if clave is not None:
+            guardar_json(clave, examen["ruta_clave"])
+            print(f"Clave actualizada en: {examen['ruta_clave']}")
+    else:
+        print("\n¿Querés volver a cargar también la clave de respuestas? (s/n): ", end="")
+        if input().strip().lower() == "s":
+            clave = pedir_clave_respuestas(template)
+            if clave is not None:
+                guardar_json(clave, examen["ruta_clave"])
+                print(f"Clave actualizada en: {examen['ruta_clave']}")
+
+
+def borrar_examen_interactivo(examen):
+    print(f"\nVas a borrar: {examen['nombre']}")
+    print(f"  {examen['ruta_template']}")
+    print(f"  {examen['ruta_clave']}")
+    confirmacion = input("\n¿Confirmás que querés borrarlo? Esta acción no se puede deshacer (s/n): ").strip().lower()
+
+    if confirmacion != "s":
+        print("Cancelado, no se borró nada.")
+        return
+
+    os.remove(examen["ruta_template"])
+    os.remove(examen["ruta_clave"])
+    print("Examen borrado correctamente.")
