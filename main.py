@@ -88,9 +88,8 @@ def procesar_examen(ruta_imagen, clave, template):
 
 
 def main():
-    template = template_loader.cargar_template("assets/templates/template_biologia.json")
-    clave = answer_key.cargar_clave("assets/answer_keys/clave_biologia.json")
-
+    template, clave = template_loader.elegir_examen_interactivo()
+    
     print(f"Usando template: {template['nombre']}")
     print(f"({template['total_preguntas']} preguntas, {template['opciones_por_pregunta']} opciones, {template['bloques']} bloques)\n")
 
