@@ -111,7 +111,7 @@ def main():
         try:
             datos = procesar_examen(ruta, clave, template)
             print(f"Correctas: {datos['correctas']}/{datos['total']}  |  Nota: {datos['nota']}/10")
-
+            from gradevision_core.export import csv_exporter, pdf_report
             examenes_procesados.append({
                 "alumno": nombre_archivo,
                 "resultados": datos["resultados"],
@@ -120,7 +120,10 @@ def main():
                 "nota": datos["nota"]
             })
             exitosos += 1
-
+            ruta_pdf = pdf_report.generar_pdf_examen(
+                nombre_archivo, datos["resultados"], datos["correctas"], datos["total"], datos["nota"]
+            )
+            print(f"PDF generado: {ruta_pdf}")
         except ValueError as error:
             print(f"FALLÓ: {error}")
             fallidos += 1
