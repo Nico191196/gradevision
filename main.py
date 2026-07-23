@@ -5,7 +5,7 @@ import string
 from gradevision_core.scanner import image_loader, preprocessing, document, perspective, validation
 from gradevision_core.detection import bubbles, grid
 from gradevision_core.grading import scoring, answer_key, grader
-from gradevision_core.export import csv_exporter
+from gradevision_core.export import csv_exporter, pdf_report, visual_marker
 from gradevision_core.templates import template_loader
 
 
@@ -16,7 +16,6 @@ def procesar_examen(ruta_imagen, clave, template):
 
     imagen_gris = preprocessing.convertir_a_grises(imagen)
 
-    # --- Validaciones tempranas de calidad de la foto ---
     nitida, valor_nitidez = validation.verificar_nitidez(imagen_gris)
     if not nitida:
         raise ValueError(
@@ -38,8 +37,6 @@ def procesar_examen(ruta_imagen, clave, template):
     puntos = document.obtener_cuatro_esquinas(contorno_hoja)
 
     if puntos is None:
-        # Diagnóstico inteligente: para esto necesitamos los puntos "crudos"
-        # (sin simplificar a 4), así que los recalculamos acá para el mensaje.
         perimetro = cv2.arcLength(contorno_hoja, True)
         aproximacion = cv2.approxPolyDP(contorno_hoja, 0.02 * perimetro, True)
         puntos_crudos = aproximacion.reshape(-1, 2)
@@ -83,14 +80,16 @@ def procesar_examen(ruta_imagen, clave, template):
         "resultados": resultados,
         "correctas": correctas,
         "total": total,
-        "nota": nota
+        "nota": nota,
+        "hoja_enderezada": hoja_enderezada,
+        "preguntas": preguntas
     }
 
 
 def main():
     template, clave = template_loader.elegir_examen_interactivo()
-    
-    print(f"Usando template: {template['nombre']}")
+
+    print(f"\nUsando template: {template['nombre']}")
     print(f"({template['total_preguntas']} preguntas, {template['opciones_por_pregunta']} opciones, {template['bloques']} bloques)\n")
 
     rutas_imagenes = (
@@ -111,7 +110,7 @@ def main():
         try:
             datos = procesar_examen(ruta, clave, template)
             print(f"Correctas: {datos['correctas']}/{datos['total']}  |  Nota: {datos['nota']}/10")
-            from gradevision_core.export import csv_exporter, pdf_report
+
             examenes_procesados.append({
                 "alumno": nombre_archivo,
                 "resultados": datos["resultados"],
@@ -120,10 +119,17 @@ def main():
                 "nota": datos["nota"]
             })
             exitosos += 1
+
             ruta_pdf = pdf_report.generar_pdf_examen(
                 nombre_archivo, datos["resultados"], datos["correctas"], datos["total"], datos["nota"]
             )
             print(f"PDF generado: {ruta_pdf}")
+
+            ruta_marcada = visual_marker.marcar_hoja(
+                datos["hoja_enderezada"], datos["preguntas"], datos["resultados"], nombre_archivo=nombre_archivo
+            )
+            print(f"Hoja marcada generada: {ruta_marcada}")
+
         except ValueError as error:
             print(f"FALLÓ: {error}")
             fallidos += 1
