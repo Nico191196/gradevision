@@ -6,7 +6,7 @@ from gradevision_core.scanner import image_loader, preprocessing, document, pers
 from gradevision_core.detection import bubbles, grid
 from gradevision_core.grading import scoring, answer_key, grader
 from gradevision_core.export import csv_exporter, pdf_report, visual_marker
-from gradevision_core.templates import template_loader
+from gradevision_core.templates import template_loader, roster_loader
 
 
 def procesar_examen(ruta_imagen, clave, template):
@@ -86,20 +86,71 @@ def procesar_examen(ruta_imagen, clave, template):
     }
 
 
+def elegir_alumno_de_lista(alumnos, ya_asignados):
+    """
+    Muestra la lista completa de alumnos, marcando cuáles ya fueron
+    asignados en esta tanda, y devuelve el nombre elegido (por número
+    de la lista, escrito directamente, o None si se deja vacío).
+    """
+    print("\nAlumnos:")
+    for i, alumno in enumerate(alumnos, start=1):
+        marca = "  (ya asignado)" if alumno in ya_asignados else ""
+        print(f"  {i}. {alumno}{marca}")
+
+    while True:
+        eleccion = input(
+            "\n¿A qué alumno corresponde esta hoja? "
+            "(número, escribir el nombre, o Enter para usar el nombre del archivo): "
+        ).strip()
+
+        if eleccion == "":
+            return None
+
+        if eleccion.isdigit() and 1 <= int(eleccion) <= len(alumnos):
+            elegido = alumnos[int(eleccion) - 1]
+            if elegido in ya_asignados:
+                confirmar = input(f"'{elegido}' ya fue asignado antes en esta tanda. ¿Confirmás igual? (s/n): ").strip().lower()
+                if confirmar != "s":
+                    continue
+            return elegido
+
+        # Si no es un número válido, lo tratamos como el nombre escrito directamente
+        return eleccion
+
+
 def main():
     template, clave = template_loader.elegir_examen_interactivo()
 
     print(f"\nUsando template: {template['nombre']}")
     print(f"({template['total_preguntas']} preguntas, {template['opciones_por_pregunta']} opciones, {template['bloques']} bloques)\n")
 
+    rosters = roster_loader.listar_rosters()
+    alumnos = []
+
+    if rosters:
+        print("=== Listas de alumnos disponibles ===")
+        for i, roster in enumerate(rosters, start=1):
+            print(f"  {i}. {roster['nombre']}")
+        print(f"  {len(rosters) + 1}. No usar ninguna lista (nombrar los archivos manualmente)")
+
+        while True:
+            eleccion = input("\n¿Qué lista de alumnos usar? (número): ").strip()
+            if eleccion.isdigit() and 1 <= int(eleccion) <= len(rosters):
+                alumnos = rosters[int(eleccion) - 1]["alumnos"]
+                break
+            elif eleccion == str(len(rosters) + 1):
+                break
+            print("  Número inválido.")
+
     rutas_imagenes = (
         glob.glob("sample_data/exams/*.jpg")
         + glob.glob("sample_data/exams/*.jpeg")
         + glob.glob("sample_data/exams/*.png")
     )
-    print(f"Se encontraron {len(rutas_imagenes)} fotos para procesar.\n")
+    print(f"\nSe encontraron {len(rutas_imagenes)} fotos para procesar.\n")
 
     examenes_procesados = []
+    ya_asignados = set()
     exitosos = 0
     fallidos = 0
 
@@ -111,8 +162,16 @@ def main():
             datos = procesar_examen(ruta, clave, template)
             print(f"Correctas: {datos['correctas']}/{datos['total']}  |  Nota: {datos['nota']}/10")
 
+            nombre_confirmado = nombre_archivo
+
+            if alumnos:
+                elegido = elegir_alumno_de_lista(alumnos, ya_asignados)
+                if elegido:
+                    nombre_confirmado = elegido
+                    ya_asignados.add(elegido)
+
             examenes_procesados.append({
-                "alumno": nombre_archivo,
+                "alumno": nombre_confirmado,
                 "resultados": datos["resultados"],
                 "correctas": datos["correctas"],
                 "total": datos["total"],
@@ -121,12 +180,12 @@ def main():
             exitosos += 1
 
             ruta_pdf = pdf_report.generar_pdf_examen(
-                nombre_archivo, datos["resultados"], datos["correctas"], datos["total"], datos["nota"]
+                nombre_confirmado, datos["resultados"], datos["correctas"], datos["total"], datos["nota"]
             )
             print(f"PDF generado: {ruta_pdf}")
 
             ruta_marcada = visual_marker.marcar_hoja(
-                datos["hoja_enderezada"], datos["preguntas"], datos["resultados"], nombre_archivo=nombre_archivo
+                datos["hoja_enderezada"], datos["preguntas"], datos["resultados"], nombre_archivo=nombre_confirmado
             )
             print(f"Hoja marcada generada: {ruta_marcada}")
 

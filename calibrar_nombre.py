@@ -17,8 +17,8 @@ def main():
 
     recorte = student_name.recortar_zona_nombre(
         hoja_enderezada,
-        y_inicio=0.05, y_fin=0.10,
-        x_inicio=0.05, x_fin=0.65
+        y_inicio=0.082, y_fin=0.098,
+        x_inicio=0.2, x_fin=0.55
     )
     cv2.imwrite("recorte_nombre.png", recorte)
     print("Recorte guardado en recorte_nombre.png. Abrilo para revisar si se ve bien la zona del nombre.")

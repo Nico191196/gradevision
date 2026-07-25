@@ -1,14 +1,15 @@
 from gradevision_core.templates import template_editor, template_loader
-
-
 def mostrar_menu_principal():
     print("\n=== Gestión de exámenes ===")
     print("  1. Crear un examen nuevo")
     print("  2. Ver exámenes existentes")
     print("  3. Editar un examen existente")
     print("  4. Borrar un examen")
-    print("  5. Salir")
-
+    print("  5. Crear una lista de alumnos")
+    print("  6. Ver listas de alumnos")
+    print("  7. Editar una lista de alumnos")
+    print("  8. Borrar una lista de alumnos")
+    print("  9. Salir")
 
 def elegir_examen_de_lista(examenes, accion):
     print(f"\n=== Exámenes disponibles para {accion} ===")
@@ -71,12 +72,45 @@ def main():
                 template_editor.borrar_examen_interactivo(examen)
 
         elif opcion == "5":
+            from gradevision_core.templates import roster_loader
+            roster_loader.crear_roster_interactivo()
+
+        elif opcion == "6":
+            from gradevision_core.templates import roster_loader
+            rosters = roster_loader.listar_rosters()
+            if not rosters:
+                print("\nNo hay ninguna lista de alumnos creada todavía.")
+                continue
+            roster = elegir_examen_de_lista(rosters, "ver el detalle")
+            if roster:
+                roster_loader.mostrar_detalle_roster(roster)
+
+        elif opcion == "7":
+            from gradevision_core.templates import roster_loader
+            rosters = roster_loader.listar_rosters()
+            if not rosters:
+                print("\nNo hay ninguna lista de alumnos creada todavía.")
+                continue
+            roster = elegir_examen_de_lista(rosters, "editar")
+            if roster:
+                roster_loader.editar_roster_interactivo(roster)
+
+        elif opcion == "8":
+            from gradevision_core.templates import roster_loader
+            rosters = roster_loader.listar_rosters()
+            if not rosters:
+                print("\nNo hay ninguna lista de alumnos creada todavía.")
+                continue
+            roster = elegir_examen_de_lista(rosters, "borrar")
+            if roster:
+                roster_loader.borrar_roster_interactivo(roster)
+
+        elif opcion == "9":
             print("\nHasta luego.")
             break
 
         else:
-            print("\nOpción no válida, elegí un número del 1 al 5.")
-
+            print("\nOpción no válida, elegí un número del 1 al 9.")
 
 if __name__ == "__main__":
     main()
