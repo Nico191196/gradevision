@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gradevision-core"
+version = "0.1.0"
+description = "Motor de vision por computadora y calificacion de examenes para GradeVision"
+requires-python = ">=3.10"
+dependencies = [
+    "opencv-python",
+    "numpy",
+    "reportlab",
+    "pytesseract",
+]
+
+[tool.setuptools.packages.find]
+include = ["gradevision_core*"]
