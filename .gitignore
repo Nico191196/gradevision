@@ -5,3 +5,4 @@ resultados/
 sample_data/exams/*
 recorte_nombre.png
 gradevision_core.egg-info/
+backend/venv/
