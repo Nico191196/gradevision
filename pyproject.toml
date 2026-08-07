@@ -8,10 +8,28 @@ version = "0.1.0"
 description = "Motor de vision por computadora y calificacion de examenes para GradeVision"
 requires-python = ">=3.10"
 dependencies = [
-    "opencv-python",
-    "numpy",
-    "reportlab",
-    "pytesseract",
+    "opencv-python>=5.0.0",
+    "numpy>=2.5.1",
+    "reportlab>=5.0.0",
+]
+
+[project.optional-dependencies]
+# Herramientas de desarrollo y testing (usar en el entorno local del docente/dev)
+dev = [
+    "pytest>=8.0",
+]
+# Dependencias del backend FastAPI (Fase 1+ del roadmap). Sin estas, el
+# core y el CLI funcionan igual: el backend aun no tiene aplicacion.
+backend = [
+    "fastapi>=0.141.1",
+    "uvicorn>=0.52.0",
+    "python-multipart>=0.0.32",
+]
+# pytesseract queda separado porque el modulo de OCR de nombres
+# (student_name.py) es experimental y no forma parte del MVP:
+# ver docs/roadmap.md y H9 de docs/audits/03-08-2026.md
+ocr = [
+    "pytesseract>=0.3.13",
 ]
 
 [tool.setuptools.packages.find]
