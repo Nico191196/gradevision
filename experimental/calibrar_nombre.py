@@ -1,5 +1,18 @@
+# Script experimental de calibracion para el OCR de nombres.
+# NO forma parte del MVP (ver docs/requisitos_negocio.md) y NO se corre
+# desde main.py ni desde ningun flujo activo del proyecto.
+#
+# ADVERTENCIA: este script llama a student_name.recortar_zona_nombre(),
+# que ya no existe en student_name.py (el modulo paso a un enfoque de
+# recorte dinamico por palabra ancla: recortar_zona_nombre_dinamico).
+# Se conserva el script tal como estaba, sin corregir la logica, porque
+# el enfoque de OCR de nombres esta descartado del MVP actual (ver
+# hallazgo H9 de docs/audits/03-08-2026.md). Si en el futuro se retoma
+# este camino, hay que reescribir esta llamada usando la API vigente.
+
 import cv2
-from gradevision_core.scanner import image_loader, preprocessing, document, perspective, student_name
+from gradevision_core.scanner import image_loader, preprocessing, document, perspective
+import student_name  # modulo experimental, vive en esta misma carpeta
 
 
 def main():

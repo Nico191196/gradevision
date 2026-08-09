@@ -1,8 +1,18 @@
+import os
 import cv2
 import pytesseract
 import difflib
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# La ruta al ejecutable de Tesseract varia segun el sistema y la
+# instalacion de cada persona (nunca hardcodear una ruta de Windows
+# especifica aca). Si Tesseract no esta en el PATH del sistema, definir
+# la variable de entorno TESSERACT_CMD antes de correr este script:
+#
+#   PowerShell:  $env:TESSERACT_CMD = "C:\Program Files\Tesseract-OCR\tesseract.exe"
+#   bash/zsh:    export TESSERACT_CMD="/usr/local/bin/tesseract"
+_tesseract_cmd = os.environ.get("TESSERACT_CMD")
+if _tesseract_cmd:
+    pytesseract.pytesseract.tesseract_cmd = _tesseract_cmd
 
 
 def encontrar_palabra_ancla(hoja_enderezada, palabra_buscada="Alumno", similitud_minima=0.6):
