@@ -15,9 +15,6 @@ def obtener_cuatro_esquinas(contorno):
     aproximacion = cv2.approxPolyDP(contorno, 0.02 * perimetro, True)
 
     if len(aproximacion) != 4:
-        print(f"  [Diagnóstico] El contorno se simplificó a {len(aproximacion)} puntos (se esperaban 4).")
-        puntos_encontrados = aproximacion.reshape(-1, 2)
-        print(f"  [Diagnóstico] Puntos encontrados: {puntos_encontrados.tolist()}")
         return None
 
     return aproximacion.reshape(4, 2)
